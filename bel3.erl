@@ -18,17 +18,28 @@ print(P)->io:write(P),io:fwrite("~n"),true.
 % Elements - Elemente aus denen ausgewaehlt werden soll
 -spec row(non_neg_integer(), non_neg_integer(),list(non_neg_integer())) -> list(list(non_neg_integer())).
 row(0, Value, Elements) ->[[]];
-row(Max, Value, Elements) -> [Y || Y <- comb(Elements, Max), lists:sum(Y) == Value].
-%row(Max, Value, Elements) -> [Y++[Q] || X <- comb(Elements, Max), Y <- row(Max-1, Value, Elements), lists:sum(Y) < Value+1, Q <- Elements].
-
+row(Max, Value, Elements) ->  [lists:sort(Y) || Y <- comb(Elements, Max), lists:sum(Y) == Value, hasDoubles(Y)].
 
 comb(_,0) -> [ [] ];
 comb(Elements, Count) -> [ Y++[Q] || Y<-comb(Elements,Count-1), Q<-Elements].
 
+hasDoubles(List)-> length(sets:to_list(sets:from_list(List))) == length(List).
 
 t()->row(3,15, lists:seq(1,9)).
 
-%length(Y) >= Max, lists:sum(Y) =< Value
+tc()->R = t(), check(15, R). 
+
+
+check(Sum,[]) ->true;
+check(Sum, [H|T])  ->case lists:sum(H) of
+                    Sum -> check(Sum, T);
+                    _ -> false end.
+
+
+checkl(L,[]) ->true;
+checkl(L, [H|T])  ->case length(H) of
+                    L -> checkl(L, T);
+                    _ -> H end.
 
 % Funktion, die ermittelt, ob sich in zwei Listen doppelte Elemente befinden
 % Aufruf duplicate(Liste1,Liste2)

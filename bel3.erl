@@ -25,28 +25,19 @@ comb(Elements, Count) -> [ Y++[Q] || Y<-comb(Elements,Count-1), Q<-Elements].
 
 hasDoubles(List)-> length(sets:to_list(sets:from_list(List))) == length(List).
 
-t()->row(3,15, lists:seq(1,9)).
-
-tc()->R = t(), check(15, R). 
 
 
-check(Sum,[]) ->true;
-check(Sum, [H|T])  ->case lists:sum(H) of
-                    Sum -> check(Sum, T);
-                    _ -> false end.
-
-
-checkl(L,[]) ->true;
-checkl(L, [H|T])  ->case length(H) of
-                    L -> checkl(L, T);
-                    _ -> H end.
 
 % Funktion, die ermittelt, ob sich in zwei Listen doppelte Elemente befinden
 % Aufruf duplicate(Liste1,Liste2)
 % Liste1 - Erste Liste
 % Liste2 - Zweite Liste
 -spec duplicate(list(non_neg_integer()),list(non_neg_integer())) -> true | false.
-duplicate(Liste1,Liste2 )-> toBeDefined.
+duplicate(Liste1,Liste2 )-> S1 = sets:from_list(Liste1),
+                            S2 = sets:from_list(Liste2),
+                            U = sets:union(S1,S2),
+                            sets:size(U) /= 0.
+
 
 % combineRows setzt eine beliebige Anzahl von Reihen, die vorab berechnet werden, zusammen
 % Dabei wird ueberprueft, ob sich doppelte Elemente innerhalb der Reihen befinden.

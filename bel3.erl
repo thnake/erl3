@@ -33,9 +33,10 @@ hasDoubles(List)-> length(sets:to_list(sets:from_list(List))) == length(List).
 % Liste1 - Erste Liste
 % Liste2 - Zweite Liste
 -spec duplicate(list(non_neg_integer()),list(non_neg_integer())) -> true | false.
+duplicate([],[])->false;    
 duplicate(Liste1,Liste2 )-> S1 = sets:from_list(Liste1),
                             S2 = sets:from_list(Liste2),
-                            U = sets:union(S1,S2),
+                            U = sets:intersection(S1,S2),
                             sets:size(U) /= 0.
 
 
@@ -48,8 +49,10 @@ duplicate(Liste1,Liste2 )-> S1 = sets:from_list(Liste1),
 % Elems - Elemente aus denen gewaehlt werden soll
 
 -spec combineRows(non_neg_integer(), non_neg_integer(), non_neg_integer(), list(non_neg_integer()))->list(list(non_neg_integer())).
-combineRows(Col,Max,Value, Elems) -> toBeDefined. 
-combineRows(Col,Max,Value) -> dummy.
+combineRows(Col,Max,Value) -> combineRows(Col,Max,Value, lists:seq(1, Max)). 
+combineRows(Col,Max,Value,Elems) -> toBeDefined.
+
+
 % calcSquares berechnet aus einem Teilquadrat alle moeglichen gueltigen Quadrate, die sich bilden lassen
 % Aufruf: calcSquares(Part, Max, Value)
 % Part - Teilquadrat fuer das die Magischen Quadrate berechnet werden sollen

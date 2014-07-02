@@ -51,7 +51,7 @@ duplicate(Liste1,Liste2 )-> S1 = sets:from_list(Liste1),
 -spec combineRows(non_neg_integer(), non_neg_integer(), non_neg_integer(), list(non_neg_integer()))->list(list(non_neg_integer())).
 combineRows(Col, Max, Value) -> combineRows(Col, Max, Value,lists:seq(1,Max*Max)).
 
-combineRows(Col,Max,Value,Elems) ->cr(Col,row(Max,Value,Elems)).
+combineRows(Col,Max,Value,Elems) ->print(combineRows), cr(Col,row(Max,Value,Elems)).
 
 cr(0,_)->[[]];
 cr(X, Rows)->[lists:flatten(Y++[Q])|| Y <-  cr(X-1,Rows), Q <- Rows, duplicate(lists:flatten(Y),Q)==false].    
@@ -63,7 +63,7 @@ cr(X, Rows)->[lists:flatten(Y++[Q])|| Y <-  cr(X-1,Rows), Q <- Rows, duplicate(l
 % Max - Anzahl der Elemente pro Zeile/Spalte
 % Value - Wert der Summe einer Zeile
 -spec calcSquares(list(non_neg_integer()), non_neg_integer(), non_neg_integer()) -> list(list(non_neg_integer())).
-calcSquares(Part, Max, Value)-> [Y++[Q] || Y <- combineRows(Max,Value, lists:seq(1,Max*Max)), Q <- [Part]]. 
+calcSquares(Part, Max, Value)-> [Y++[Q] || Y <- [Part], Q <- combineRows(Max - length(Part)/Max,Max,Value, lists:seq(1,Max*Max)),duplicate(lists:flatten(Y),Q)==false]. 
 
 
 

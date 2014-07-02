@@ -18,7 +18,7 @@ duplicate_test_()->
 		?_assertEqual(true,bel3:duplicate([1,2,3,4,5],[6,7,8,9,10,1]))	
 	].
 
-combineRows_test_()-> {timeout, 300, fun combineRows_testFun/0}.	
+combineRows_test_()-> {timeout, 5, fun combineRows_testFun/0}.	
 combineRows_testFun()-> 
 	Rows3=bel3:combineRows(2,3,15,lists:seq(1,9)),
 	Rows4=bel3:combineRows(2,4,34, lists:seq(1,16)),

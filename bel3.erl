@@ -1,6 +1,9 @@
 -module(bel3).
 -compile(export_all).
 
+
+ut()->eunit:test(bel3_tests).
+
 print (P,Q)->io:write(P),io:fwrite(" "),io:write(Q),io:fwrite("~n"),true.
 print(P)->io:write(P),io:fwrite("~n"),true.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -24,12 +27,10 @@ row(Max, Value, Elements) ->  [Y || Y <- comb(Elements, Max, Max, Value)].
 
 comb(_,0, _, _) -> [ [] ];
 comb(Elements, Count, Max, Value) ->
-  [ [Number | Liste] || Liste <- comb(Elements, Count - 1, Max, Value),
-  Number <- Elements,
-  not(lists:member(Number, Liste)),
+  [[Number | Liste] || Liste <- comb(Elements, Count - 1, Max, Value),   Number <- Elements, not(lists:member(Number, Liste)),
   not((Count == Max) andalso (lists:sum([Number | Liste]) /= Value))].
 
-% hasDoubles(List)-> length(sets:to_list(sets:from_list(List))) == length(List).
+hasDoubles(List)-> length(sets:to_list(sets:from_list(List))) /= length(List).
 
 
 
@@ -45,6 +46,7 @@ duplicate2(Liste1,Liste2 )-> S1 = sets:from_list(Liste1),
                             U = sets:intersection(S1,S2),
                             sets:size(U) /= 0.
 
+% viel schneller
 duplicate(Liste1, Liste2) -> lists:any(fun (E) -> lists:member(E, Liste2) end, Liste1).
 
 % combineRows setzt eine beliebige Anzahl von Reihen, die vorab berechnet werden, zusammen
@@ -58,7 +60,7 @@ duplicate(Liste1, Liste2) -> lists:any(fun (E) -> lists:member(E, Liste2) end, L
 -spec combineRows(non_neg_integer(), non_neg_integer(), non_neg_integer(), list(non_neg_integer()))->list(list(non_neg_integer())).
 combineRows(Col, Max, Value) -> combineRows(Col, Max, Value,lists:seq(1,Max*Max)).
 
-combineRows(Col,Max,Value,Elems) ->print(combineRows), cr(Col,row(Max,Value,Elems)).
+combineRows(Col,Max,Value,Elems)->cr(Col,row(Max,Value,Elems)).
 
 cr(0,_)->[[]];
 cr(X, Rows)->[ Y++Q || Y <-  cr(X-1,Rows), Q <- Rows, not(duplicate(Y, Q))].
@@ -70,11 +72,48 @@ cr(X, Rows)->[ Y++Q || Y <-  cr(X-1,Rows), Q <- Rows, not(duplicate(Y, Q))].
 % Max - Anzahl der Elemente pro Zeile/Spalte
 % Value - Wert der Summe einer Zeile
 -spec calcSquares(list(non_neg_integer()), non_neg_integer(), non_neg_integer()) -> list(list(non_neg_integer())).
-calcSquares(Part, Max, Value)-> [Y++[Q] || Y <- [Part], Q <- combineRows(Max - length(Part)/Max,Max,Value, lists:seq(1,Max*Max)),duplicate(lists:flatten(Y),Q)==false].
+%calcSquares(Part, Max, MagicNumber)-> [[Y|Q] || Y <- [Part], Q <- combineRows(Max - length(Part)/Max,Max,Value, lists:seq(1,Max*Max)),duplicate(lists:flatten(Y),Q)==false].
+
+
+calcSquares(Part, Max, MagicNumber)-> Rows = combineRows(trunc(Max - length(Part)/Max - 1), Max,MagicNumber,lists:seq(1,Max*Max)),
+                                        Candidates = [Part ++ Y || Y <- Rows, false == duplicate(Y, Part)],
+                                        [C++FinalRow || C <- Candidates, FinalRow <- [getLastRow(C, Max, MagicNumber)], 
+                                    lists:sum(FinalRow) == MagicNumber 
+                                    andalso not(duplicate(FinalRow, C)) 
+                                    andalso length(FinalRow)==Max 
+                                    andalso sumDiagonalLR(C++FinalRow,Max,1) == MagicNumber 
+                                    andalso sumDiagonalRL(C++FinalRow,Max,Max) == MagicNumber
+                                    andalso hasDoubles(FinalRow) == false].
+
+
+
+% \                                     
+sumDiagonalLR(_,Max,Step) when Max < Step -> 0;
+sumDiagonalLR(Matrix, Max, Step)-> getCell(Matrix, Step, Step, Max) + sumDiagonalLR(Matrix, Max, Step +1).
+
+% /
+sumDiagonalRL(_,Max,Step) when Step < 1 -> 0;
+sumDiagonalRL(Matrix, Max, Step)-> getCell(Matrix, Max - Step + 1, Step, Max) + sumDiagonalRL(Matrix, Max, Step - 1).
+
+checkMatrix(Matrix, N)-> [lists:sum(getRow(Matrix, Row, N)) || Row <- lists:seq(1,N)].
 
 
 
 
+getRow(Matrix, R, N)-> [getCell(Matrix,X,Y,N) || X <- lists:seq(1,N), Y <- [R]].
+getCol(Matrix, C, N)-> [getCell(Matrix,X,Y,N) || X <- [C], Y <- lists:seq(1,N)].
+
+getCell(Matrix, X, Y, N) -> lists:nth(N*(Y-1) + X, Matrix).
+
+getLastRow(Part, N, MagicNumber)-> [MagicNumber - Sum || Col <- lists:seq(1,N), Sum <- [colSum(Part, Col, 0, N)], lists:member(MagicNumber - Sum, lists:seq(1,N*N)) ].
+
+colSum(Part, Col, Row, N) when Row == N-1 -> 0;
+colSum(Part, Col, Row, N)-> lists:nth(Row*N+Col,Part) + colSum(Part, Col, Row+1, N).
+
+t()->bel3:calcSquares([4,9,2], 3, 15).
+
+map (_, []) -> [];
+map (Fun, [X|XS]) -> [Fun(X) | map(Fun, XS)].
 
 % combineSquares ermittelt aus allen Teilquadraten die gueltige Loesung
 % Aufruf: combineSquares(Parts, Max, Value)

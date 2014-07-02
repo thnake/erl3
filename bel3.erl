@@ -63,7 +63,10 @@ cr(X, Rows)->[lists:flatten(Y++[Q])|| Y <-  cr(X-1,Rows), Q <- Rows, duplicate(l
 % Max - Anzahl der Elemente pro Zeile/Spalte
 % Value - Wert der Summe einer Zeile
 -spec calcSquares(list(non_neg_integer()), non_neg_integer(), non_neg_integer()) -> list(list(non_neg_integer())).
-calcSquares(Part, Max, Value)-> toBeDefined. 
+calcSquares(Part, Max, Value)-> [Y++[Q] || Y <- combineRows(Max,Value, lists:seq(1,Max*Max)), Q <- [Part]]. 
+
+
+
 
 	
 % combineSquares ermittelt aus allen Teilquadraten die gueltige Loesung

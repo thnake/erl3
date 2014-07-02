@@ -4,7 +4,7 @@
 print (P,Q)->io:write(P),io:fwrite(" "),io:write(Q),io:fwrite("~n"),true.
 print(P)->io:write(P),io:fwrite("~n"),true.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 	
+%
 %	Algorithmus fuer die verteilte Berechnung Magischer Quadrate
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -18,12 +18,18 @@ print(P)->io:write(P),io:fwrite("~n"),true.
 % Elements - Elemente aus denen ausgewaehlt werden soll
 -spec row(non_neg_integer(), non_neg_integer(),list(non_neg_integer())) -> list(list(non_neg_integer())).
 row(0, Value, Elements) ->[[]];
-row(Max, Value, Elements) ->  [Y || Y <- comb(Elements, Max), lists:sum(Y) == Value, hasDoubles(Y)].
+row(Max, Value, Elements) ->  [Y || Y <- comb(Elements, Max, Max, Value)].
+% row(Max, Value, Elements) ->  [Y || Y <- comb(Elements, Max), lists:sum(Y) == Value].
+% row(Max, Value, Elements) ->  [Y || Y <- comb(Elements, Max), lists:sum(Y) == Value, hasDoubles(Y)].
 
-comb(_,0) -> [ [] ];
-comb(Elements, Count) -> [ Y++[Q] || Y<-comb(Elements,Count-1), Q<-Elements].
+comb(_,0, _, _) -> [ [] ];
+comb(Elements, Count, Max, Value) ->
+  [ [Number | Liste] || Liste <- comb(Elements, Count - 1, Max, Value),
+  Number <- Elements,
+  not(lists:member(Number, Liste)),
+  not((Count == Max) andalso (lists:sum([Number | Liste]) /= Value))].
 
-hasDoubles(List)-> length(sets:to_list(sets:from_list(List))) == length(List).
+% hasDoubles(List)-> length(sets:to_list(sets:from_list(List))) == length(List).
 
 
 
@@ -33,12 +39,13 @@ hasDoubles(List)-> length(sets:to_list(sets:from_list(List))) == length(List).
 % Liste1 - Erste Liste
 % Liste2 - Zweite Liste
 -spec duplicate(list(non_neg_integer()),list(non_neg_integer())) -> true | false.
-duplicate([],[])->false;    
-duplicate(Liste1,Liste2 )-> S1 = sets:from_list(Liste1),
+duplicate2([],[])->false;
+duplicate2(Liste1,Liste2 )-> S1 = sets:from_list(Liste1),
                             S2 = sets:from_list(Liste2),
                             U = sets:intersection(S1,S2),
                             sets:size(U) /= 0.
 
+duplicate(Liste1, Liste2) -> lists:any(fun (E) -> lists:member(E, Liste2) end, Liste1).
 
 % combineRows setzt eine beliebige Anzahl von Reihen, die vorab berechnet werden, zusammen
 % Dabei wird ueberprueft, ob sich doppelte Elemente innerhalb der Reihen befinden.
@@ -54,7 +61,7 @@ combineRows(Col, Max, Value) -> combineRows(Col, Max, Value,lists:seq(1,Max*Max)
 combineRows(Col,Max,Value,Elems) ->print(combineRows), cr(Col,row(Max,Value,Elems)).
 
 cr(0,_)->[[]];
-cr(X, Rows)->[lists:flatten(Y++[Q])|| Y <-  cr(X-1,Rows), Q <- Rows, duplicate(lists:flatten(Y),Q)==false].    
+cr(X, Rows)->[ Y++Q || Y <-  cr(X-1,Rows), Q <- Rows, not(duplicate(Y, Q))].
 
 
 % calcSquares berechnet aus einem Teilquadrat alle moeglichen gueltigen Quadrate, die sich bilden lassen
@@ -63,12 +70,12 @@ cr(X, Rows)->[lists:flatten(Y++[Q])|| Y <-  cr(X-1,Rows), Q <- Rows, duplicate(l
 % Max - Anzahl der Elemente pro Zeile/Spalte
 % Value - Wert der Summe einer Zeile
 -spec calcSquares(list(non_neg_integer()), non_neg_integer(), non_neg_integer()) -> list(list(non_neg_integer())).
-calcSquares(Part, Max, Value)-> [Y++[Q] || Y <- [Part], Q <- combineRows(Max - length(Part)/Max,Max,Value, lists:seq(1,Max*Max)),duplicate(lists:flatten(Y),Q)==false]. 
+calcSquares(Part, Max, Value)-> [Y++[Q] || Y <- [Part], Q <- combineRows(Max - length(Part)/Max,Max,Value, lists:seq(1,Max*Max)),duplicate(lists:flatten(Y),Q)==false].
 
 
 
 
-	
+
 % combineSquares ermittelt aus allen Teilquadraten die gueltige Loesung
 % Aufruf: combineSquares(Parts, Max, Value)
 % Parts - Alle Teilquadrate
@@ -78,7 +85,7 @@ calcSquares(Part, Max, Value)-> [Y++[Q] || Y <- [Part], Q <- combineRows(Max - l
 combineSquares([],_, _, _) -> [];
 combineSquares([X|XS], Max, Value, Num) ->
 	Res= calcSquares(X,Max,Value),
-	case Res of 
+	case Res of
 		[] -> combineSquares(XS, Max, Value, Num);
 		_ ->	io:format("Erg Nummer~p:~p~n",[Num,Res]),Res++combineSquares(XS, Max, Value,Num+length(Res))
 	end.
@@ -91,12 +98,12 @@ magicsquare(Max)-> magicsquare(Max, egal).
 magicsquare(Max, Mode)->
 	statistics(runtime),
 	Result= case Mode of
-			debug ->  case Max of 
+			debug ->  case Max of
 					3-> Parts= combineRows(2,3,15), combineSquares(Parts,3,15,0);
 					4-> Parts= combineRows(1,4,34), combineSquares(Parts,4,34,0);
 					_-> error
 				end;
-			_ -> case Max of 
+			_ -> case Max of
 					3-> Parts= combineRows(2,3,15), combineSquares(Parts,3,15);
 					4-> Parts= combineRows(2,4,34), combineSquares(Parts,4,34);
 					_-> error
@@ -122,18 +129,18 @@ magicsquare(Max, Mode)->
 % PCount - Anzahl der Prozesse auf die aufgespalten werden soll
 % wobei wenn X=3 - die Summe ist wird auf 15 gesetzt
 % oder wenn X=4, dann ist die Summe gleich 34
--spec distribMS(non_neg_integer(), non_neg_integer())-> list(list(non_neg_integer())). 
+-spec distribMS(non_neg_integer(), non_neg_integer())-> list(list(non_neg_integer())).
 distribMS(Max, PCount)->
 	statistics(runtime),
-	Result= 
+	Result=
 		case Max of
 			3 -> Value=15, PSquare=combineRows(1,Max,Value),
 				spawn_at(PCount, node(), PSquare, 3, Value, init_local),
-				loop_gather(PCount,[]);	
+				loop_gather(PCount,[]);
 			4 -> Value=34, PSquare=combineRows(2,Max,Value),
 				spawn_at(PCount, node(), PSquare, 4, Value, init_local),
 				loop_gather(PCount,[]);
-			_ ->  [[]]	 
+			_ ->  [[]]
 		end,
 	{_, Time1} = statistics(runtime),
 	U= Time1/ 1000,
@@ -158,9 +165,9 @@ spawn_at(CCount, Host, PList, Max, Value, InitFun)-> toBeDefined.
 % SPid - Prozessnummer des erzeugenden Prozesses - fuer das Senden des Ergebnisses
 % PList - Teilliste, fuer die ein Prozess die magischen Quadrate berechnen soll
 % Max - Anzahl der Spalten/Zeilen
-% Value - Wert der Summe der Zeile 
-% Host - kann hier vernachlaessigt werden 
-init_local(Nr, SPid, PList, Max, Value,_)-> 
+% Value - Wert der Summe der Zeile
+% Host - kann hier vernachlaessigt werden
+init_local(Nr, SPid, PList, Max, Value,_)->
 	distrib_calc_squares(Nr, SPid, PList, Max, Value).
 
 -spec distrib_calc_squares(non_neg_integer(), pid(), list(list(non_neg_integer())), non_neg_integer(), non_neg_integer()) -> ok.
@@ -199,22 +206,22 @@ c_count()-> lists:sum([Count||{_,Count}<-hosts()]).
 % oder wenn X=4, dann ist die Summe gleich 34
 
 megaDistribMS(Max)->
-	
+
 	% Ausschalten des Error-Loggings auf der Konsole
 	error_logger:tty(false),
 	register(host_monitor,spawn(fun()->init_host_monitor(hosts()) end)),
 	statistics(runtime),
-	Result= 
+	Result=
 		case Max of
 			3 -> Value=15, PSquare=combineRows(2,Max,Value),
-				while(c_count(), hosts(), PSquare, 3, 15), 
+				while(c_count(), hosts(), PSquare, 3, 15),
 %				spawn_at(4, node(), PSquare, 3, Value),
-				loop_gather(c_count(),[]);	
+				loop_gather(c_count(),[]);
 			4 -> Value=34, PSquare=combineRows(2,Max,Value),
 				while(c_count(), hosts(), PSquare, 4, 34),
 %				spawn_at(4, node(), PSquare, 4, Value),
 				loop_gather(c_count(),[]);
-			_ ->  [[]]	 
+			_ ->  [[]]
 		end,
 	{_, Time1} = statistics(runtime),
 	U= Time1/ 1000,
@@ -233,21 +240,21 @@ megaDistribMS(Max)->
 % Value - Wert der Summe der Zeile
 -spec while(non_neg_integer(), list({atom(),non_neg_integer()}), list(list(non_neg_integer())), non_neg_integer(),non_neg_integer())->ok.
 while (CCount, HostCountL, PList, Max, Value) -> toBeDefined.
-	
+
 % Supervisor-Prozess, der die Ausfuehrung der Berechnungen ueberwacht
 % Spawnt die Berechnungsprozesse auf den Nodes des Erlang-Clusters und behandelt die Fehlerfaelle
 % Nr - Nummer des Prozesses (nur zur besseren Identifikation)
 % SPid - Prozessnummer des erzeugenden Prozesses
 % PList - Teilliste, fuer die ein Prozess die magischen Quadrate berechnen soll
 % Max - Anzahl der Spalten/Zeilen
-% Value - Wert der Summe der Zeile 
+% Value - Wert der Summe der Zeile
 % Try - Anzahl der noch ausstehenden Versuche
 
 init_global(Nr, SPid, PList, Max, Value, Host)->
 	init_global(Nr, SPid, PList, Max, Value, Host,3).
 
 -spec init_global(non_neg_integer(), pid(), list(list(non_neg_integer())), non_neg_integer(), non_neg_integer(),
-	atom(), non_neg_integer()) -> ok.	
+	atom(), non_neg_integer()) -> ok.
 init_global(Nr, SPid, PList, Max, Value, Host, Try)-> toBeDefined.
 
 % Monitoring-Prozess fuer die Ueberwachung der zur Verfuegung stehenden Cluster-Nodes
@@ -262,9 +269,9 @@ init_global(Nr, SPid, PList, Max, Value, Host, Try)-> toBeDefined.
 init_host_monitor(MonitorList) -> ML= lists:map(fun({Host,_})->Host end, MonitorList),
 	lists:foreach(fun(Host)->erlang:monitor_node(Host, true) end, ML),
 	monitorHosts(ML).
-	
+
 monitorHosts([])-> erlang:error(no_hosts_available);
-monitorHosts(HostList)-> 
+monitorHosts(HostList)->
 	receive
 		{nodedown, NodeName}-> io:format("Host ~p is down!~n",[NodeName]),
 			monitorHosts(lists:delete(NodeName, HostList));
@@ -276,5 +283,5 @@ monitorHosts(HostList)->
 		{gethosts, From} -> From!{hostlist, HostList}, monitorHosts(HostList);
 		{deletenode, NodeName}-> io:format("Host ~p will be deleted!~n",[NodeName]),
 			monitorHosts(lists:delete(NodeName, HostList));
-		stop -> ok 
+		stop -> ok
 	end.

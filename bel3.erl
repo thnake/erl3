@@ -110,7 +110,6 @@ getLastRow(Part, N, MagicNumber)-> [MagicNumber - Sum || Col <- lists:seq(1,N), 
 colSum(Part, Col, Row, N) when Row == N-1 -> 0;
 colSum(Part, Col, Row, N)-> lists:nth(Row*N+Col,Part) + colSum(Part, Col, Row+1, N).
 
-t()->bel3:calcSquares([4,9,2], 3, 15).
 
 
 % combineSquares ermittelt aus allen Teilquadraten die gueltige Loesung
@@ -180,13 +179,30 @@ distribMS(Max, PCount)->
 			_ ->  [[]]
 		end,
 	{_, Time1} = statistics(runtime),
-	U= Time1/ 1000,
+	U = Time1 / 1000,
 	io:format("Anzahl der Quadrate:~p~n",[length(Result)]),
 	io:format("Magicsquare Time:~p~n",[U]),
 	Result.
 
 
 autoDistrib(Max)->distribMS(Max, erlang:system_info(logical_processors_available)).
+
+
+t()->
+S1 = [[3,5,7],[2,6,7],[6,1,8],[5,2,8],[4,3,8],[3,4,8],[2,5,8],[1,6,8],[5,1,9],[4,2,9],[2,4,9],[1,5,9]],
+S2 = [[5,7,3],[4,8,3],[9,2,4],[8,3,4],[6,5,4],[5,6,4],[3,8,4],[2,9,4],[9,1,5],[8,2,5],[7,3,5],[6,4,5]],
+S3 = [[9,5,1],[8,6,1],[6,8,1],[5,9,1],[9,4,2],[8,5,2],[7,6,2],[6,7,2],[5,8,2],[4,9,2],[8,4,3],[7,5,3]],
+S4 = [[4,6,5],[3,7,5],[2,8,5],[1,9,5],[8,1,6],[7,2,6],[5,4,6],[4,5,6],[2,7,6],[1,8,6],[6,2,7],[5,3,7]],
+[
+duplicate(S1,S2),
+duplicate(S1,S3),
+duplicate(S1,S4),
+duplicate(S2,S3),
+duplicate(S2,S4),
+duplicate(S3,S4)
+].
+
+
 
 
 % Spawnt eine festgelegte Anzahl von Prozessen auf einem angegebenen Host
@@ -197,18 +213,17 @@ autoDistrib(Max)->distribMS(Max, erlang:system_info(logical_processors_available
 % InitFun - Funktion, die beim Initialisieren des Prozesses aufgerufen werden soll
 %-spec spawn_at(integer(), atom(), list(list(non_neg_integer())), non_neg_integer(), non_neg_integer(), atom()).
 
-spawn_at(CCount, Host, PList, Max, Value, InitFun)-> spawnParam(CCount, Host, PList, Max, Value, InitFun, 0).
+spawn_at(CCount, Host, PList, Max, Value, InitFun)-> print(parts, length(PList)), spawnParam(CCount, Host, PList, Max, Value, InitFun, 0).
 
 
 spawnParam(CCount, Host, PList, Max, Value, InitFun, SpawnCounter) when SpawnCounter == CCount -> done;
-spawnParam(CCount, Host, PList, Max, Value, InitFun, SpawnCounter)->print(spawnNr, SpawnCounter), 
-													Len = length(PList)/CCount + case CCount - SpawnCounter  of 
+spawnParam(CCount, Host, PList, Max, Value, InitFun, SpawnCounter)-> 
+													Len = trunc(length(PList)/CCount),
+													Rest = case CCount - SpawnCounter  of 
 																				1 -> SpawnCounter;
 																				_ -> 0 end,
-													Args = [CCount, self(), lists:sublist(PList, trunc(Len)), Max, Value],							
-													print(?MODULE),print(Args),
+													Args = [CCount, self(), lists:sublist(PList, Len * SpawnCounter + 1, Len + Rest), Max, Value],
 													Pid = spawn(node(), ?MODULE, InitFun, Args),
-													print(pid, Pid),
 													spawnParam(CCount, Host, PList, Max, Value, InitFun, SpawnCounter+1).
 
 
@@ -233,7 +248,9 @@ init_local(Nr, SPid, PList, Max, Value)->
 
 -spec distrib_calc_squares(non_neg_integer(), pid(), list(list(non_neg_integer())), non_neg_integer(), non_neg_integer()) -> ok.
 %distrib_calc_squares(Nr, SPid, PList, Max, Value)-> Res = combineSquares(PList,Max,Value), SPid!Res.
-distrib_calc_squares(Nr, SPid, PList, Max, Value)-> Res = combineSquares(PList,Max,Value),
+distrib_calc_squares(Nr, SPid, PList, Max, Value)-> 
+
+													Res = combineSquares(PList,Max,Value),
 													SPid!{calc, Res}.
 
 % Methode sammelt alle Ergebnisse ein
@@ -247,7 +264,7 @@ distrib_calc_squares(Nr, SPid, PList, Max, Value)-> Res = combineSquares(PList,M
 loop_gather(0,Result)-> Result;		
 loop_gather(CCount,Result)->
 							receive
-								{calc, Res} -> Result ++ Res 
+								{calc, Res} -> print(Res),loop_gather(CCount-1,Result ++ Res) 
 							after 3000 -> timeout
 							end.
 

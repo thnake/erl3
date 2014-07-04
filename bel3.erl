@@ -277,7 +277,9 @@ loop_gather(CCount,Result)->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Codieren der Hostnamen mit der Anzahl von Prozessen, die sie ausfuehren sollen
-hosts()->[{'tiger@hadoop03',48},{'scorpion@hadoop06',48}].
+%hosts()->[{'tiger@hadoop03',48},{'scorpion@hadoop06',48}].
+hosts()->[{'think@thinkpad',1}].
+
 
 % Berechnung der Anzahl der Prozesse insgesamt
 % Soll fuer die Aufteilung der Quadrate verwendet werden
@@ -296,7 +298,7 @@ megaDistribMS(Max)->
 
 	% Ausschalten des Error-Loggings auf der Konsole
 	error_logger:tty(false),
-	register(host_monitor,spawn(fun()->init_host_monitor(hosts()) end)),
+	%register(host_monitor,spawn(fun()->init_host_monitor(hosts()) end)),
 	statistics(runtime),
 	Result=
 		case Max of
@@ -326,7 +328,22 @@ megaDistribMS(Max)->
 % Max - Anzahl der Elemente, die berechnet werden sollen
 % Value - Wert der Summe der Zeile
 -spec while(non_neg_integer(), list({atom(),non_neg_integer()}), list(list(non_neg_integer())), non_neg_integer(),non_neg_integer())->ok.
-while (CCount, HostCountL, PList, Max, Value) -> toBeDefined.
+while (CCount, Hosts, PList, Max, Value) -> whileParam(CCount, Hosts, PList, Max, Value, 0, trunc(length(PList)/length(hosts()))).
+
+
+whileParam(CCount, [{ VMName, VMPCount}], PList, Max, Value, HostCounter,Len)-> spawn_at(VMPCount, VMName, lists:nthtail(Len * HostCounter,PList), Max, Value, init_global);
+whileParam(CCount, [{ VMName, VMPCount} | Hosts], PList, Max, Value, HostCounter, Len)->
+																	Hcount = length(hosts()), 
+																	Rest = case length(Hosts) of 
+																				0 -> Hcount-1;
+																				_ -> 0 end,
+																	PListDist = lists:sublist(PList, Len * HostCounter + 1, Len + Rest),
+
+																	spawn_at(VMPCount, VMName, lists:sublist(PList, Len * HostCounter + 1, Len + Rest), Max, Value, init_global), 
+																	whileParam(CCount, Hosts, PList, Max, Value, HostCounter + 1, Len).
+
+
+
 
 % Supervisor-Prozess, der die Ausfuehrung der Berechnungen ueberwacht
 % Spawnt die Berechnungsprozesse auf den Nodes des Erlang-Clusters und behandelt die Fehlerfaelle
@@ -340,9 +357,17 @@ while (CCount, HostCountL, PList, Max, Value) -> toBeDefined.
 init_global(Nr, SPid, PList, Max, Value, Host)->
 	init_global(Nr, SPid, PList, Max, Value, Host,3).
 
+
 -spec init_global(non_neg_integer(), pid(), list(list(non_neg_integer())), non_neg_integer(), non_neg_integer(),
 	atom(), non_neg_integer()) -> ok.
-init_global(Nr, SPid, PList, Max, Value, Host, Try)-> toBeDefined.
+init_global(Nr, SPid, PList, Max, Value, Host, Try)->
+				{_,PCount} = lists:keyfind(node(), 1, hosts()),
+				spawn_at(PCount, node(), PList, Max, Value, init_local),
+				SPid!loop_gather(PCount,[]).
+
+
+
+
 
 % Monitoring-Prozess fuer die Ueberwachung der zur Verfuegung stehenden Cluster-Nodes
 % Er wird von der Hauptmethode megaDistribMS gestartet,

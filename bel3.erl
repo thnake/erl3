@@ -112,8 +112,6 @@ colSum(Part, Col, Row, N)-> lists:nth(Row*N+Col,Part) + colSum(Part, Col, Row+1,
 
 t()->bel3:calcSquares([4,9,2], 3, 15).
 
-map (_, []) -> [];
-map (Fun, [X|XS]) -> [Fun(X) | map(Fun, XS)].
 
 % combineSquares ermittelt aus allen Teilquadraten die gueltige Loesung
 % Aufruf: combineSquares(Parts, Max, Value)
@@ -187,18 +185,42 @@ distribMS(Max, PCount)->
 	io:format("Magicsquare Time:~p~n",[U]),
 	Result.
 
+
+autoDistrib(Max)->distribMS(Max, erlang:system_info(logical_processors_available)).
+
+
 % Spawnt eine festgelegte Anzahl von Prozessen auf einem angegebenen Host
 % Aufruf: spawn_at(CCount, Host, Count, Plist, Max, Value)
 % CCount - Anzahl der Prozesse, die abgespalten werden sollen
 % Host - Host auf dem der Prozess erzeugt werden soll / wird in diesem Teil nicht benoetigt,
 % 		 da alles auf dem lokalen Rechner stattfindet
 % InitFun - Funktion, die beim Initialisieren des Prozesses aufgerufen werden soll
--spec spawn_at(integer(), atom(), list(list(non_neg_integer())), non_neg_integer(), non_neg_integer(), atom()) -> ok.
-spawn_at(CCount, Host, PList, Max, Value, InitFun)-> toBeDefined.
+%-spec spawn_at(integer(), atom(), list(list(non_neg_integer())), non_neg_integer(), non_neg_integer(), atom()).
+
+spawn_at(CCount, Host, PList, Max, Value, InitFun)-> spawnParam(CCount, Host, PList, Max, Value, InitFun, 0).
+
+
+spawnParam(CCount, Host, PList, Max, Value, InitFun, SpawnCounter) when SpawnCounter == CCount -> done;
+spawnParam(CCount, Host, PList, Max, Value, InitFun, SpawnCounter)->print(spawnNr, SpawnCounter), 
+													Len = length(PList)/CCount + case CCount - SpawnCounter  of 
+																				1 -> SpawnCounter;
+																				_ -> 0 end,
+													Args = [CCount, self(), lists:sublist(PList, trunc(Len)), Max, Value],							
+													print(?MODULE),print(Args),
+													Pid = spawn(node(), ?MODULE, InitFun, Args),
+													print(pid, Pid),
+													spawnParam(CCount, Host, PList, Max, Value, InitFun, SpawnCounter+1).
+
+
+
+
+
+
+
 
 % Methode, die bei Abspaltung des Prozesses aufgerufen wird
 % hat die/den Parameter [Nr, SPid, PList, Max, Value, Host]
-% Die Methode berechnet fuer eine Menge an Teilquadraten alle Loesungen und
+% Die Methode berechnet fuer eine Menge an Teilquadraten alle Loesun!gen und
 % sendet diese an den erzeugenden Prozess.
 % Nr - Nummer des Prozesses (nur fuer debug-Ausgaben auf der Konsole)
 % SPid - Prozessnummer des erzeugenden Prozesses - fuer das Senden des Ergebnisses
@@ -206,11 +228,13 @@ spawn_at(CCount, Host, PList, Max, Value, InitFun)-> toBeDefined.
 % Max - Anzahl der Spalten/Zeilen
 % Value - Wert der Summe der Zeile
 % Host - kann hier vernachlaessigt werden
-init_local(Nr, SPid, PList, Max, Value,_)->
+init_local(Nr, SPid, PList, Max, Value)->
 	distrib_calc_squares(Nr, SPid, PList, Max, Value).
 
 -spec distrib_calc_squares(non_neg_integer(), pid(), list(list(non_neg_integer())), non_neg_integer(), non_neg_integer()) -> ok.
-distrib_calc_squares(Nr, SPid, PList, Max, Value)-> toBeDefined.
+%distrib_calc_squares(Nr, SPid, PList, Max, Value)-> Res = combineSquares(PList,Max,Value), SPid!Res.
+distrib_calc_squares(Nr, SPid, PList, Max, Value)-> Res = combineSquares(PList,Max,Value),
+													SPid!{calc, Res}.
 
 % Methode sammelt alle Ergebnisse ein
 % Wird von der Methode magicsquare aufgerufen
@@ -219,8 +243,15 @@ distrib_calc_squares(Nr, SPid, PList, Max, Value)-> toBeDefined.
 %		   zu erwartenden Ergebnisse
 % Result - Aktuell bereitstehendes Ergebnis
 
--spec loop_gather(non_neg_integer(), list(list(non_neg_integer())))-> list(list(non_neg_integer())).
-loop_gather(CCount,Result)-> toBeDefined.
+%-spec loop_gather(non_neg_integer(), list(list(non_neg_integer())))-> list(list(non_neg_integer())).
+loop_gather(0,Result)-> Result;		
+loop_gather(CCount,Result)->
+							receive
+								{calc, Res} -> Result ++ Res 
+							after 3000 -> timeout
+							end.
+
+											
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%								   									%%

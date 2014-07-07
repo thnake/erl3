@@ -1,6 +1,8 @@
 -module(bel3).
 -compile(export_all).
 
+% zum debuggenn
+% compile:file("bel3.erl",[debug_info])
 
 ut()->eunit:test(bel3_tests).
 
@@ -213,23 +215,21 @@ duplicate(S3,S4)
 % InitFun - Funktion, die beim Initialisieren des Prozesses aufgerufen werden soll
 %-spec spawn_at(integer(), atom(), list(list(non_neg_integer())), non_neg_integer(), non_neg_integer(), atom()).
 
-spawn_at(CCount, Host, PList, Max, Value, InitFun)-> print(parts, length(PList)), spawnParam(CCount, Host, PList, Max, Value, InitFun, 0).
+spawn_at(CCount, Host, PList, Max, Value, InitFun)->  spawnParam(CCount, Host, PList, Max, Value, InitFun, 0).
 
 
-spawnParam(CCount, Host, PList, Max, Value, InitFun, SpawnCounter) when SpawnCounter == CCount -> done;
-spawnParam(CCount, Host, PList, Max, Value, InitFun, SpawnCounter)-> 
+spawnParam(CCount, Host, PList, Max, Value, InitFun, SpawnCounter) when SpawnCounter == CCount ->done;
+spawnParam(CCount, Host, PList, Max, Value, InitFun, SpawnCounter)->
 													Len = trunc(length(PList)/CCount),
 													Rest = case CCount - SpawnCounter  of 
 																				1 -> SpawnCounter;
 																				_ -> 0 end,
-													Args = [CCount, self(), lists:sublist(PList, Len * SpawnCounter + 1, Len + Rest), Max, Value],
-													Pid = spawn(node(), ?MODULE, InitFun, Args),
+													Args = [CCount, self(), lists:sublist(PList, Len * SpawnCounter + 1, Len + Rest), Max, Value, Host],
+													Pid = spawn(Host, ?MODULE, InitFun, Args),
+													
+													%spawn(Host, ?MODULE, fun()->print(dude_g) end),
+													
 													spawnParam(CCount, Host, PList, Max, Value, InitFun, SpawnCounter+1).
-
-
-
-
-
 
 
 
@@ -243,7 +243,8 @@ spawnParam(CCount, Host, PList, Max, Value, InitFun, SpawnCounter)->
 % Max - Anzahl der Spalten/Zeilen
 % Value - Wert der Summe der Zeile
 % Host - kann hier vernachlaessigt werden
-init_local(Nr, SPid, PList, Max, Value)->
+
+init_local(Nr, SPid, PList, Max, Value, _)-> print(dude, init_local),
 	distrib_calc_squares(Nr, SPid, PList, Max, Value).
 
 -spec distrib_calc_squares(non_neg_integer(), pid(), list(list(non_neg_integer())), non_neg_integer(), non_neg_integer()) -> ok.
@@ -264,8 +265,8 @@ distrib_calc_squares(Nr, SPid, PList, Max, Value)->
 loop_gather(0,Result)-> Result;		
 loop_gather(CCount,Result)->
 							receive
-								{calc, Res} -> print(Res),loop_gather(CCount-1,Result ++ Res) 
-							after 3000 -> timeout
+								{calc, Res} ->loop_gather(CCount-1,Result ++ Res) 
+							%after 3000 -> timeout
 							end.
 
 											
@@ -277,8 +278,8 @@ loop_gather(CCount,Result)->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Codieren der Hostnamen mit der Anzahl von Prozessen, die sie ausfuehren sollen
-%hosts()->[{'tiger@hadoop03',48},{'scorpion@hadoop06',48}].
-hosts()->[{'think@thinkpad',1}].
+%hosts()->[{'tiger@hadoop03',48},{'scorpion@hadoop06',48}	3].
+hosts()->[{'pad@thinkpad',2},{'think@thinkpad',2}].
 
 
 % Berechnung der Anzahl der Prozesse insgesamt
@@ -297,8 +298,8 @@ c_count()-> lists:sum([Count||{_,Count}<-hosts()]).
 megaDistribMS(Max)->
 
 	% Ausschalten des Error-Loggings auf der Konsole
-	error_logger:tty(false),
-	%register(host_monitor,spawn(fun()->init_host_monitor(hosts()) end)),
+	error_logger:tty(true),
+	register(host_monitor,spawn(fun()->init_host_monitor(hosts()) end)),
 	statistics(runtime),
 	Result=
 		case Max of
@@ -314,6 +315,7 @@ megaDistribMS(Max)->
 		end,
 	{_, Time1} = statistics(runtime),
 	U= Time1/ 1000,
+	print(Result),
 	io:format("Anzahl der Quadrate:~p~n",[length(Result)]),
 	io:format("Magicsquare Time:~p~n",[U]),
 	host_monitor!stop,
@@ -354,7 +356,7 @@ whileParam(CCount, [{ VMName, VMPCount} | Hosts], PList, Max, Value, HostCounter
 % Value - Wert der Summe der Zeile
 % Try - Anzahl der noch ausstehenden Versuche
 
-init_global(Nr, SPid, PList, Max, Value, Host)->
+init_global(Nr, SPid, PList, Max, Value, Host)-> print(dude, init_global),
 	init_global(Nr, SPid, PList, Max, Value, Host,3).
 
 
@@ -363,7 +365,8 @@ init_global(Nr, SPid, PList, Max, Value, Host)->
 init_global(Nr, SPid, PList, Max, Value, Host, Try)->
 				{_,PCount} = lists:keyfind(node(), 1, hosts()),
 				spawn_at(PCount, node(), PList, Max, Value, init_local),
-				SPid!loop_gather(PCount,[]).
+				Result =loop_gather(PCount,[]), 
+				SPid!{calc, Result}.
 
 
 
